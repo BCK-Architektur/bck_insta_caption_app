@@ -11,6 +11,9 @@ To set-up the project from scratch, run the following commands in your terminal.
 ```shell
 git clone https://github.com/kenshuri/setup_django_tailwind_daisyui.git
 cd setup_django_tailwind_daisyui
+
+venv/Scripts/activate.ps1
+
 python -m virtualenv venv
 pip install -r requirements.txt
 cd jstoolchains

@@ -2,33 +2,38 @@
 {% block title %}Caption Generator{% endblock title %}
 
 {% block main %}
-<div class="container mx-auto p-6">
-    <h1 class="text-2xl font-bold mb-4 text-center">Generate Instagram Captions</h1>
-
-    <div class="relative max-w-lg mx-auto">
-        <button id="prev-post" class="absolute left-0 top-1/2 -translate-y-1/2 bg-gray-300 px-4 py-2 rounded">⬅</button>
-        
-        <div id="post-container" class="p-6 border rounded-lg shadow-lg bg-white flex flex-col items-center">
-            <div id="image-container" class="mb-4">
-                <!-- Image preview logic similar to the Django admin panel -->
-                <div id="image-previews" class="flex flex-wrap justify-center gap-2"></div>
-            </div>
-            <button id="generate-caption-btn" class="btn btn-primary mt-2">Generate Caption</button>
-            <div id="loading-text" class="hidden text-gray-500 mt-2">Generating caption...</div>
-            <div id="caption-container" class="hidden mt-4">
-                <h3 class="text-lg font-semibold mb-2">Generated Caption:</h3>
-                <p id="generated-caption" class="text-gray-700"></p>
-                <button id="save-caption-btn" class="btn btn-secondary mt-2">Save Caption</button>
-            </div>
+<div class="container mx-auto p-6 flex">
+    <!-- Left Side: Image Display -->
+    <div class="w-2/3 flex flex-col items-center">
+        <div id="large-image-container" class="mb-4">
+            <img id="large-image" class="rounded-lg shadow-lg max-w-full" src="" alt="Post Image">
         </div>
-        
-        <button id="next-post" class="absolute right-0 top-1/2 -translate-y-1/2 bg-gray-300 px-4 py-2 rounded">➡</button>
+        <div id="thumbnail-container" class="flex gap-2">
+            <!-- Thumbnails will be added dynamically -->
+        </div>
     </div>
+
+    <!-- Right Side: Caption Operations -->
+    <div class="w-1/3 p-6 border rounded-lg bg-transparent outline-dotted">
+        <h1 class="text-2xl font-bold mb-4 text-center">Generate Instagram Captions</h1>
+        <div id="loading-text" class="text-gray-500 mb-2 hidden">Generating caption...</div>
+
+        <div id="caption-container" class="hidden">
+            <h3 class="text-lg font-semibold mb-2">Generated Caption:</h3>
+            <ul id="generated-caption" class="text-gray-700"></ul>
+            <button id="save-caption-btn" class="btn btn-accent btn-outline mt-2">Save Selected Caption</button>
+        </div>
+    </div>
+
+    <!-- Navigation Arrows -->
+    <button id="prev-post" class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-black text-4xl">‹</button>
+    <button id="next-post" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-black text-4xl">›</button>
 </div>
 
 <script>
 let posts = [];
 let currentIndex = 0;
+let selectedCaption = "";
 
 document.addEventListener("DOMContentLoaded", function () {
     fetch("/uncaptioned/")
@@ -38,7 +43,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (posts.length > 0) {
                 showPost(0);
             } else {
-                document.getElementById("post-container").innerHTML = "<p class='text-gray-500'>No uncaptioned posts found.</p>";
+                document.getElementById("large-image-container").innerHTML = "<p class='text-gray-500'>No uncaptioned posts found.</p>";
             }
         })
         .catch(error => console.error("Error fetching posts:", error));
@@ -46,32 +51,33 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function showPost(index) {
     if (index < 0 || index >= posts.length) return;
-
+    
     currentIndex = index;
     let post = posts[index];
+    let largeImage = document.getElementById("large-image");
+    let thumbnailContainer = document.getElementById("thumbnail-container");
 
-    let imageContainer = document.getElementById("image-previews");
-    imageContainer.innerHTML = ""; // Clear previous images
+    thumbnailContainer.innerHTML = "";
 
     if (post.images && post.images.length > 0) {
-        post.images.forEach(imgUrl => {
-            if (imgUrl) { // Ensure the image URL is valid
-                let imgElement = document.createElement("img");
-                imgElement.src = imgUrl.startsWith("/") ? imgUrl : `/media/${imgUrl}`;
-                imgElement.style = "width:100px; height:auto; margin:5px; border-radius:10px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);";
-                imageContainer.appendChild(imgElement);
-            }
+        largeImage.src = post.images[0];
+
+        post.images.forEach((imgUrl, idx) => {
+            let imgElement = document.createElement("img");
+            imgElement.src = imgUrl;
+            imgElement.classList.add("w-20", "h-20", "rounded-lg", "shadow", "cursor-pointer");
+            imgElement.onclick = () => { largeImage.src = imgUrl; };
+            thumbnailContainer.appendChild(imgElement);
         });
+
+        generateCaption(post.id);
     } else {
-        imageContainer.innerHTML = "<p class='text-gray-500'>No images available</p>";
+        largeImage.src = "";
+        thumbnailContainer.innerHTML = "<p class='text-gray-500'>No images available</p>";
     }
 
-    document.getElementById("generate-caption-btn").onclick = function () {
-        generateCaption(post.id);
-    };
-
     document.getElementById("save-caption-btn").onclick = function () {
-        saveCaption(post.id, document.getElementById("generated-caption").innerText);
+        saveCaption(post.id, selectedCaption);
     };
 }
 
@@ -85,26 +91,52 @@ document.getElementById("next-post").addEventListener("click", function () {
 
 function generateCaption(postId) {
     document.getElementById("loading-text").classList.remove("hidden");
+    document.getElementById("caption-container").classList.add("hidden");
+    document.getElementById("generated-caption").innerHTML = "";  // Clear previous captions
+    selectedCaption = ""; // Reset selected caption
 
-    fetch(`/generate/${postId}/`, { method: "POST" })
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById("loading-text").classList.add("hidden");
+    fetch(`/generate/${postId}/`, { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_chat: true }) // Signal that this is a new session
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById("loading-text").classList.add("hidden");
 
-            if (data.success) {
-                document.getElementById("generated-caption").innerText = data.caption;
-                document.getElementById("caption-container").classList.remove("hidden");
-            } else {
-                alert("Error generating caption: " + data.error);
-            }
-        })
-        .catch(error => {
-            console.error("Error generating caption:", error);
-            alert("Failed to generate caption. Please try again.");
-        });
+        if (data.success) {
+            let captionList = document.getElementById("generated-caption");
+            captionList.innerHTML = ""; 
+
+            data.captions.forEach((caption) => {
+                let listItem = document.createElement("li");
+                let radioInput = document.createElement("input");
+                radioInput.type = "radio";
+                radioInput.name = "captionSelection";
+                radioInput.value = caption;
+                radioInput.onclick = function () { selectedCaption = this.value; };
+                listItem.appendChild(radioInput);
+                listItem.appendChild(document.createTextNode(` ${caption}`));
+                captionList.appendChild(listItem);
+            });
+
+            document.getElementById("caption-container").classList.remove("hidden");
+        } else {
+            alert("Error generating caption: " + data.error);
+        }
+    })
+    .catch(error => {
+        console.error("Error generating caption:", error);
+        alert("Failed to generate caption. Please try again.");
+    });
 }
 
 function saveCaption(postId, caption) {
+    if (!caption) {
+        alert("Please select a caption to save.");
+        return;
+    }
+
     fetch(`/save/${postId}/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
