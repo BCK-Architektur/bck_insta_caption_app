@@ -1,8 +1,9 @@
 from django.db import models
 
+
 class InstaPost(models.Model):
-    images = models.JSONField()  # Store image URLs or file paths as a list
-    caption = models.CharField(max_length=500, blank=True, null=True)  # Store the selected caption
+    images = models.JSONField(default=list, blank=True, null=True)  # ✅ Make it optional
+    caption = models.CharField(max_length=500, blank=True, null=True)
 
     def __str__(self):
         return f"Post {self.id}"

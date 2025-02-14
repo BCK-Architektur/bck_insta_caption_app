@@ -1,40 +1,102 @@
 {% extends "captionApp/base.html" %}
 {% block title %}Caption Generator{% endblock title %}
+
 {% block main %}
 <div class="container mx-auto p-6">
-    <h1 class="text-2xl font-bold mb-4">Generate Instagram Captions</h1>
-    <div id="post-container"></div>
+    <h1 class="text-2xl font-bold mb-4 text-center">Generate Instagram Captions</h1>
+
+    <div class="relative max-w-lg mx-auto">
+        <button id="prev-post" class="absolute left-0 top-1/2 -translate-y-1/2 bg-gray-300 px-4 py-2 rounded">⬅</button>
+        
+        <div id="post-container" class="p-6 border rounded-lg shadow-lg bg-white flex flex-col items-center">
+            <div id="image-container" class="mb-4">
+                <!-- Image preview logic similar to the Django admin panel -->
+                <div id="image-previews" class="flex flex-wrap justify-center gap-2"></div>
+            </div>
+            <button id="generate-caption-btn" class="btn btn-primary mt-2">Generate Caption</button>
+            <div id="loading-text" class="hidden text-gray-500 mt-2">Generating caption...</div>
+            <div id="caption-container" class="hidden mt-4">
+                <h3 class="text-lg font-semibold mb-2">Generated Caption:</h3>
+                <p id="generated-caption" class="text-gray-700"></p>
+                <button id="save-caption-btn" class="btn btn-secondary mt-2">Save Caption</button>
+            </div>
+        </div>
+        
+        <button id="next-post" class="absolute right-0 top-1/2 -translate-y-1/2 bg-gray-300 px-4 py-2 rounded">➡</button>
+    </div>
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", function() {
+let posts = [];
+let currentIndex = 0;
+
+document.addEventListener("DOMContentLoaded", function () {
     fetch("/uncaptioned/")
         .then(response => response.json())
         .then(data => {
-            const container = document.getElementById("post-container");
-            data.posts.forEach(post => {
-                const div = document.createElement("div");
-                div.className = "p-4 border rounded mb-4";
-                div.innerHTML = `
-                    <div>
-                        ${post.images.map(img => `<img src="${img}" class="w-32 h-32 m-2 inline-block" />`).join("")}
-                    </div>
-                    <button onclick="generateCaptions(${post.id})" class="btn btn-primary mt-2">Generate Captions</button>
-                    <div id="captions-${post.id}" class="mt-2"></div>
-                `;
-                container.appendChild(div);
-            });
-        });
+            posts = data.posts;
+            if (posts.length > 0) {
+                showPost(0);
+            } else {
+                document.getElementById("post-container").innerHTML = "<p class='text-gray-500'>No uncaptioned posts found.</p>";
+            }
+        })
+        .catch(error => console.error("Error fetching posts:", error));
 });
 
-function generateCaptions(postId) {
-    fetch(`/generate/${postId}/`)
+function showPost(index) {
+    if (index < 0 || index >= posts.length) return;
+
+    currentIndex = index;
+    let post = posts[index];
+
+    let imageContainer = document.getElementById("image-previews");
+    imageContainer.innerHTML = ""; // Clear previous images
+
+    if (post.images.length > 0) {
+        post.images.forEach(imgUrl => {
+            let imgElement = document.createElement("img");
+            imgElement.src = imgUrl;
+            imgElement.style = "width:100px; height:auto; margin:5px; border-radius:10px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);";
+            imageContainer.appendChild(imgElement);
+        });
+    }
+
+    document.getElementById("generate-caption-btn").onclick = function () {
+        generateCaption(post.id);
+    };
+
+    document.getElementById("save-caption-btn").onclick = function () {
+        saveCaption(post.id, document.getElementById("generated-caption").innerText);
+    };
+}
+
+document.getElementById("prev-post").addEventListener("click", function () {
+    showPost(currentIndex - 1);
+});
+
+document.getElementById("next-post").addEventListener("click", function () {
+    showPost(currentIndex + 1);
+});
+
+function generateCaption(postId) {
+    document.getElementById("loading-text").classList.remove("hidden");
+
+    fetch(`/generate/${postId}/`, { method: "POST" })
         .then(response => response.json())
         .then(data => {
-            const captionsDiv = document.getElementById(`captions-${postId}`);
-            captionsDiv.innerHTML = data.captions.map(cap => `
-                <button class="btn btn-secondary mt-2" onclick="saveCaption(${postId}, '${cap}')">${cap}</button>
-            `).join("");
+            document.getElementById("loading-text").classList.add("hidden");
+
+            if (data.success) {
+                document.getElementById("generated-caption").innerText = data.caption;
+                document.getElementById("caption-container").classList.remove("hidden");
+            } else {
+                alert("Error generating caption: " + data.error);
+            }
+        })
+        .catch(error => {
+            console.error("Error generating caption:", error);
+            alert("Failed to generate caption. Please try again.");
         });
 }
 
@@ -43,7 +105,17 @@ function saveCaption(postId, caption) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ caption })
-    }).then(() => location.reload());
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert("Caption saved successfully!");
+            location.reload();
+        } else {
+            alert("Error saving caption: " + data.error);
+        }
+    })
+    .catch(error => console.error("Error saving caption:", error));
 }
 </script>
 {% endblock main %}
