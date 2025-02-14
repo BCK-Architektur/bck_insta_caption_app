@@ -76,13 +76,16 @@ def generate_captions(request, post_id):
     if not post.post_images.exists():
         return JsonResponse({"success": False, "error": "No images found for this post."}, status=400)
 
+    for img in post.post_images.all():
+        print(img.image.url)  # Log image URL in the console
+
     messages = [
         {"role": "system", "content": (
             "You specialize in crafting quirky, straight-to-the-point Instagram captions for architectural images. "
             "Avoid professional architectural terminology, bombastic words, and any terms related to 'elegance'. "
-            "Use engaging, relatable language that reflects the image's color, texture, and material. "
+                # "Use engaging, relatable language that reflects the image's color, texture, and material. "
             "Captions should be short, catchy, and visually inspired. DO NOT USE EMOJIS! "
-            "If multiple images are sent, they belong to the same project.")}
+            "If multiple images are sent, they belong to the same project.")}  
     ]
 
     for img in post.post_images.all():
@@ -90,15 +93,17 @@ def generate_captions(request, post_id):
             "role": "user",
             "content": f"Describe the color, texture, and material of this image: {img.image.url}"
         })
-    
-    messages.append({"role": "user", "content": "Now, generate 4-5 short, catchy captions for this image based on its color, texture, and material. "
-                                                    "No professional or design-related terms. No exaggerated words. No words related to 'elegance'. "
-                                                    "**No exaggerated or overly fancy words.**"
-                                                    "*No professional or design-related terms.**"
-                                                    "Ignore any lines that specify image format, typeface, or logos."
-                                                    "Captions should be fun, catchy, and true to the image. "
-                                                    })
-    
+
+    messages.append({"role": "user", "content": (
+        "Now, generate 4-5 short, catchy captions for these images. "
+        "No professional or design-related terms. No exaggerated words. No words related to 'elegance'. "
+        "**No exaggerated or overly fancy words.** "
+        "*No professional or design-related terms.* "
+        "Ignore any lines that specify image format, typeface, or logos. "
+        "Captions should be fun, catchy, and true to the image."
+    )})
+
+    print("message",messages)  # Log messages in the console
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -132,10 +137,10 @@ def save_caption(request, post_id):
     post.caption = selected_caption
     post.save()
 
-    # Delete all images from Cloudinary
-    for image in post.post_images.all():
-        cloudinary.uploader.destroy(image.image.public_id)  # Delete from Cloudinary
-        image.delete()  # Remove from database
+    # # Delete all images from Cloudinary
+    # for image in post.post_images.all():
+    #     cloudinary.uploader.destroy(image.image.public_id)  # Delete from Cloudinary
+    #     image.delete()  # Remove from database
 
     return JsonResponse({"success": True, "message": "Caption saved, images deleted", "caption": post.caption})
 
