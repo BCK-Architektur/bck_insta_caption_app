@@ -53,13 +53,17 @@ function showPost(index) {
     let imageContainer = document.getElementById("image-previews");
     imageContainer.innerHTML = ""; // Clear previous images
 
-    if (post.images.length > 0) {
+    if (post.images && post.images.length > 0) {
         post.images.forEach(imgUrl => {
-            let imgElement = document.createElement("img");
-            imgElement.src = imgUrl;
-            imgElement.style = "width:100px; height:auto; margin:5px; border-radius:10px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);";
-            imageContainer.appendChild(imgElement);
+            if (imgUrl) { // Ensure the image URL is valid
+                let imgElement = document.createElement("img");
+                imgElement.src = imgUrl.startsWith("/") ? imgUrl : `/media/${imgUrl}`;
+                imgElement.style = "width:100px; height:auto; margin:5px; border-radius:10px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);";
+                imageContainer.appendChild(imgElement);
+            }
         });
+    } else {
+        imageContainer.innerHTML = "<p class='text-gray-500'>No images available</p>";
     }
 
     document.getElementById("generate-caption-btn").onclick = function () {
